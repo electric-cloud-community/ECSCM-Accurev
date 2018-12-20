@@ -1,0 +1,624 @@
+# -*-Perl-*-
+
+# accurev.ntest -
+#
+# Exercise basic components of ECSCM-Accurev plugin
+#
+# Copyright (c) 2005-2010 Electric Cloud, Inc.
+# All rights reserved
+
+use strict;
+
+# read in setup and tests that are common to all ECSCM plugin 
+# system tests
+require "$::gTestFileDir/../../ECSCM/systemtest/ntest.common";
+
+ntest "check-checkout-present", {}, sub {
+    # Check that the plugin contains required components
+    my $xpath = $::N->getSteps("$::gPlugin_name","CheckoutCode");
+    assertOK($xpath,"get steps");
+    assertEq("checkParams", $xpath->findvalue("//step[1]/stepName"), "step 1 is checkParams");
+    assertEq("checkoutMethod", $xpath->findvalue("//step[2]/stepName"), "step 1 is checkoutMethod");
+};
+
+ntest "check-getSCMTag-present", {}, sub {
+    my $xpath = $::N->getSteps("$::gPlugin_name","getSCMTag");
+    assertOK($xpath, "get steps");
+    assertEq("tagMethod", $xpath->findvalue("//step[1]/stepName"), "step 1 is getSCMTag");
+
+};
+
+ntest "check-Preflight-present", {}, sub {
+    my $xpath = $::N->getSteps("$::gPlugin_name","Preflight");
+    assertOK($xpath, "get steps");
+    assertEq("preflight", $xpath->findvalue("//step[1]/stepName"), "step 1 is preflight");
+
+};
+
+ntest "check-config code-present", {}, sub {
+    my $xpath = $::N->getProperty("/projects/$::gPlugin_name/scm_driver/$::gPlugin_driver" . "::Cfg");
+    assertOK($xpath,"get cfg property");
+    assertNe("", $xpath->findvalue("//value"), "Config Code");
+};
+
+ntest "check-driver code-present", {}, sub {
+    my $xpath = $::N->getProperty("/projects/$::gPlugin_name/scm_driver/$::gPlugin_driver" . "::Driver");
+    assertOK($xpath,"get driver property");
+};
+
+# Tests specific or customized to this SCM
+ntest "setup-import test project", {}, sub {
+    assertOK($::N->import(
+             { file =>"$::gTestFileDir/import.xml",
+               path  => "/projects/ECSCM Tests",
+               force => 1
+             } ), "import test project");
+    assertOK($::N->getProcedure("ECSCM Tests", "accutest"),"accutest procedure exists");
+};
+
+
+ntest "setup-create configuration", {}, sub {
+    my $xpath = $::N->runProcedure("$::gPlugin_name", 
+        { procedureName => "CreateConfiguration",
+          pollInterval  => '0.2',
+          timeout       => 600,
+          actualParameter => [ 
+            { actualParameterName => 'config', value => "test" }, 
+            { actualParameterName => 'desc', value => "Accurev config" }, 
+            { actualParameterName => 'credential', value => "test" }, 
+          ],
+          credential => [ 
+            { credentialName => 'test', userName => "ptharani", password => "1234", },
+          ],
+        });
+
+    assertOK($xpath, "run create configuration procedure");
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertDef($xpath, "runProcedure finished without a timeout");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+    # examine log files
+    $xpath = $::N->getJobDetails($jobId);
+
+    writeFile("$::gCurrentTestDir/createConfiguration.log","====Job Details====\n$xpath->{_xml}\n");
+
+    # check that the config and credential exist
+    $xpath = $::N->getProperty("/projects/$::ECSCM/scm_cfgs/test/scmPlugin");
+    assertEq("ECSCM-Accurev",$xpath->findvalue("//value")->string_value,"config type");
+};
+
+ntest "run-end to end", {haveScmAgent => 1, knownBug => "ECPSCM-47"}, sub {
+    # run test job
+    my $xpath = $::N->runProcedure("ECSCM Tests", 
+        { procedureName => "accutest",
+          pollInterval  => '1',
+          timeout       => 600,
+            actualParameter => [
+            {actualParameterName => 'resource', value => "$::gAgentResource"},
+            ]
+        });
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertOK($xpath, "runProcedure finished");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+    # Did the job run error free?
+    assert('', 'eq', errors($xpath), "runProcedure returned error-free");
+
+    # examine log files
+    $xpath = $::N->getJobDetails($jobId);
+    log_xml(__LINE__, $xpath, "getJobDetails");
+    assertOK( $xpath, "getJobDetails" );
+    return if assertEq('', errors($xpath), "getJobDetails returned error-free");
+
+    # Get the root of log files. use UNC so it works from
+    # command line as well as within a CMD step
+    my $ws = $xpath->findvalue("//workspace[1]/winUNC");
+    #my @temp_ws = split("//", $ws);
+    #$ws = "//" . @temp_ws[1];
+    if (!isWindows()) {
+        $ws = $xpath->findvalue("//workspace[1]/unix");
+        #my @temp_ws = split("/net/", $ws);
+        #$ws = "/net/" . @temp_ws[1];
+    } 
+    
+    
+    return if assertNe($ws, '', "Found a logfile name");
+
+    # Get the name of the log file for checkoutCode
+    my $logFileName = $xpath->findvalue(
+        "//jobStep[stepName='checkoutMethod']/calledProcedure/jobStep[stepName='runMethod']/logFileName");
+    return if assertNe($logFileName, '', "Found a logfile name");
+    $logFileName = "$ws/$logFileName";
+
+    # Read the log file and verify its contents.
+    my $data = readFile($logFileName);
+    return if assertNe($data, '', "Read data");
+
+    # check that files were really checked out
+    my $exists = (-e "$ws/accu-src/scmtest/newtestfile");
+    assertEq(1,$exists, "SCM Checked out newtestfile");
+
+    writeFile("$::gCurrentTestDir/checkoutCode.log","====Job Details====\n$xpath->{_xml}\n====LOG====\n$data\n");
+
+    my $change = 0;
+    if($data =~ '.*checkoutCode returned (.*)'){
+        $change = $1;
+    }
+    assertTrue($change && int($change) > 0,'checkoutCode - valid changelist found in log');
+
+    # Get the name of the log file for preFlight
+    $logFileName = $xpath->findvalue(
+        "//jobStep[stepName='tagMethod']/calledProcedure/jobStep[stepName='runMethod']/logFileName");
+    return if assertNe($logFileName, '', "Found a logfile name");
+    $logFileName = "$ws/$logFileName";
+
+    # Read the log file and verify its contents.
+    $data = readFile($logFileName);
+    return if assertNe($data, '', "Read data");
+
+    writeFile("$::gCurrentTestDir/getSCMTag.log",$data);
+
+    $change = 0;
+    if($data =~ '.*getSCMTag returned (.*)'){
+        $change = $1;
+    }
+    assertTrue($change && int($change) > 0,'getSCMTag - valid changelist found in log');
+};
+
+
+ntest "run-preflight", {haveScmAgent => 1, knownBug => "ECPSCM-47"}, sub {
+
+    # The agent needs to know the server name, but gTarget is probably
+    # "localhost" which does us no good.  Find the real name of the
+    # local host and pass it to the agent
+    my $serverName = "$::gTarget";
+    if ( "$::gTarget" eq "localhost" ) {
+        $serverName = hostname();
+    }
+
+
+    my $procedureName = "accurev_preflight_client";
+    my $config_param  = "/myProject/accurev-1.preflight";
+    my $src_dir       = "src";
+
+    # Run test job
+    my $xpath = $::N->runProcedure(
+        "ECSCM Tests",
+        {
+            procedureName   => "$procedureName",
+            pollInterval    => '1',
+            timeout         => 600,
+            actualParameter => [
+                {
+                    actualParameterName => 'resource',
+                    value               => "$::gAgentResource"
+                },
+                {
+                    actualParameterName => 'cmdr_server',
+                    value               => "$serverName"
+                },
+                {
+                    actualParameterName => 'test',
+                    value               => "$config_param"
+                },
+            ]
+        }
+    );
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # Make sure it finished
+    assertOK( $xpath, "runProcedure finished" );
+    my $jobId  = $xpath->findvalue("//jobId");
+    my $status = $xpath->findvalue("//status");
+    assertTrue($jobId && $jobId ne "",'valid job id');
+    assertEq( 'completed', $status, "job $jobId complete" );
+    assert('', 'eq', errors($xpath), "runProcedure returned error-free");
+
+    # Abort if job did not finish
+    if ( $status ne "completed" ) {
+        assertOK( $::N->abortJob( $jobId, { force => 1 } ) );
+    }
+
+    # Did the job run error free?
+    assert('', 'eq', errors($xpath), "runProcedure returned error-free");
+
+    # Examine log files
+    $xpath = $::N->getJobDetails($jobId);
+    log_xml(__LINE__, $xpath, "getJobDetails");
+    assertOK( $xpath, "getJobDetails" );
+    assertEq('', errors($xpath), "getJobDetails returned error-free");
+
+    # Get the root of log files. use UNC so it works from
+    # command line as well as within a CMD step
+    my $ws = $xpath->findvalue("//workspace/winUNC");
+    if ( !isWindows() ) {
+        $ws = $xpath->findvalue("//workspace/unix");
+    }
+    return if assertNe($ws, '', "Found the workspace name");
+
+    # Get the name of the log file for ecclientpreflight
+    my $logFileName = $xpath->findvalue(
+        "//jobStep[stepName='ecclientpreflight']/logFileName");
+    return if assertNe($ws, '', "Found the logfile name");
+    $logFileName = "$ws/$logFileName";
+
+    # Read the log file and verify its contents.
+    my $data = readFile($logFileName);
+
+    $data =~ 'JOB ID: ([0-9]*)';
+    my $agentJobId = $1;
+    assertTrue( $agentJobId && int($agentJobId) > 0,
+        'agent jobid found in log' );
+    writeFile( "$::gCurrentTestDir/clientpreflight.log",
+        "====Job Details====\n$xpath->{_xml}\n====LOG====\n$data\n" );
+
+    $::N->waitForJob( $agentJobId, 60 );
+
+    # now get the details of the agent job
+    $xpath = $::N->getJobDetails($agentJobId);
+    log_xml(__LINE__, $xpath, "getJobDetails");
+    assertOK( $xpath, "getJobDetails" );
+    assertEq('', errors($xpath), "getJobDetails returned error-free");
+
+    # Get the root of log files. use UNC so it works from
+    # command line as well as within a CMD step
+    $ws = $xpath->findvalue("//workspace/winUNC");
+    if ( !isWindows() ) {
+        $ws = $xpath->findvalue("//workspace/unix");
+    }
+    return if assertNe($ws, '', "Found a logfile name");
+
+    # Get the name of the log file for agent
+    my $agentLogFileName = $xpath->findvalue(
+        "//jobStep[stepName='preflight']/calledProcedure/jobStep[stepName='runMethod']/logFileName"
+      );
+    return if assertNe($agentLogFileName, '', "Found the agent logfile name");
+    $agentLogFileName = "$ws/$agentLogFileName";
+
+    $data = readFile($agentLogFileName);
+    return if assertNe($data, '', "Read data");
+
+    # Modified file
+    my $exists = ( -e "$ws/$src_dir/file1" ) || 0;
+    assertEq( 1, $exists, "SCM Checked out file1" );
+    my $content = `cat $ws/$src_dir/file1`;
+    $content =~ s/\s*$//; #chomp $content;  # chomp doesn't delete \r
+    assertEq( "preflight", $content, "SCM Modified file1" );
+
+    # Deleted file
+    $exists = ( -e "$ws/$src_dir/file2" ) || 0;
+    assertEq( 0, $exists, "SCM Deleted file2" );
+
+    # Added file
+    $exists = ( -e "$ws/$src_dir/file3" ) || 0;
+    assertEq( 1, $exists, "SCM Created file3" );
+    writeFile( "$::gCurrentTestDir/agentpreflight.log",
+        "====Job Details====\n$xpath->{_xml}\n====LOG====\n$data\n" );
+
+};
+
+ntest "accu_tag_AccurevStream_blank", {haveScmAgent => 1, knownBug => "ECPSCM-47"}, sub {
+
+    my $procedureName = "accu tag - AccurevStream - blank";
+    my $stepName      = "accu tag - AccurevStream - blank";
+
+    my $serverName = "$::gTarget";
+    if ( "$::gTarget" eq "localhost" ) {
+        $serverName = hostname();
+    }
+
+    # Run the procedure
+    my $xpath = $::N->runProcedure(
+        "ECSCM Tests",
+        {
+            procedureName   => "$procedureName",
+            pollInterval    => '1',
+            timeout         => 600,
+            actualParameter => [
+                {
+                    actualParameterName => 'resource',
+                    value               => "$::gAgentResource"
+                },
+            ]
+        }
+    );
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # Make sure it finished
+
+    #assertOK( $xpath, "runProcedure finished" );
+    #   - expecting an error.
+
+    #print "\n\n\n", $xpath->findnodes_as_string("/*"), "\n\n"; # Print the XML
+
+    my $jobId  = $xpath->findvalue("//jobId");
+    my $status = $xpath->findvalue("//status");
+    assertTrue($jobId && $jobId ne "",'valid job id');
+    assertEq( 'completed', $status, "job $jobId complete" );
+    if ( $status ne "completed" ) {
+        assertOK( $::N->abortJob( $jobId, { force => 1 } ) );
+    }
+
+    # Check the outcome
+    my $outcome = $xpath->findvalue("//outcome");
+    assertEq( 'error', $outcome, "job $jobId status: error" );
+
+    # Get the error code and message
+    $xpath = $::N->getJobDetails($jobId);
+    log_xml(__LINE__, $xpath, "getJobDetails");
+    my $errorCode = $xpath->findvalue(qq{//jobStep[stepName="$stepName"]/errorCode});
+
+    # Assertions
+    assertSubstring("FORMAL_PARAMETER_ERROR", $errorCode, "checkoutCode");
+};
+
+ntest "accu_tag_AccurevStream_invalid", {haveScmAgent => 1, knownBug => "ECPSCM-47"}, sub {
+
+    my $procedureName = "accu tag - AccurevStream - invalid";
+
+    my $serverName = "$::gTarget";
+    if ( "$::gTarget" eq "localhost" ) {
+        $serverName = hostname();
+    }
+
+    # Run the procedure
+    my $xpath = $::N->runProcedure(
+        "ECSCM Tests",
+        {
+            procedureName   => "$procedureName",
+            pollInterval    => '1',
+            timeout         => 600,
+            actualParameter => [
+                {
+                    actualParameterName => 'resource',
+                    value               => "$::gAgentResource"
+                },
+            ]
+        }
+    );
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # Make sure it finished
+    assertOK( $xpath, "runProcedure finished" );
+    my $jobId  = $xpath->findvalue("//jobId");
+    my $status = $xpath->findvalue("//status");
+    assertTrue($jobId && $jobId ne "",'valid job id');
+    assertEq( 'completed', $status, "job $jobId complete" );
+    if ( $status ne "completed" ) {
+        assertOK( $::N->abortJob( $jobId, { force => 1 } ) );
+    }
+
+    # Check the outcome
+    my $outcome = $xpath->findvalue("//outcome");
+    assertEq( 'error', $outcome, "job $jobId outcome: $outcome" );
+
+    # Get the step log
+    $xpath = $::N->getJobDetails($jobId);
+    log_xml(__LINE__, $xpath, "getJobDetails");
+    assertOK( $xpath, "getJobDetails" );
+    #print "\n\n\n", $xpath->findnodes_as_string("/*"), "\n\n"; # Print the XML
+    my $ws = $xpath->findvalue("//workspace/winUNC");
+    if ( !isWindows() ) {
+        $ws = $xpath->findvalue("//workspace/unix");
+    }
+    my $agentLogFileName = $xpath->findvalue(
+        qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+        );
+    assertTrue( "$agentLogFileName", "Step-log name");
+    $ws .= "/$agentLogFileName";
+    my $data = readFile("$ws");
+
+    # Assertions
+    assertSubstring("Unknown stream or ver spec: bogus", $data, "runMethod");
+};
+
+ntest "accu_tag_config_blank", {haveScmAgent => 1, knownBug => "ECPSCM-47"}, sub {
+
+    my $procedureName = "accu tag - config - blank";
+
+    my $serverName = "$::gTarget";
+    if ( "$::gTarget" eq "localhost" ) {
+        $serverName = hostname();
+    }
+
+    # Run the procedure
+    my $xpath = $::N->runProcedure(
+        "ECSCM Tests",
+        {
+            procedureName   => "$procedureName",
+            pollInterval    => '1',
+            timeout         => 600,
+            actualParameter => [
+                {
+                    actualParameterName => 'resource',
+                    value               => "$::gAgentResource"
+                },
+            ]
+        }
+    );
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # Make sure it finished
+    assertOK( $xpath, "runProcedure finished" );
+    my $jobId  = $xpath->findvalue("//jobId");
+    my $status = $xpath->findvalue("//status");
+    assertTrue($jobId && $jobId ne "",'valid job id');
+    assertEq( 'completed', $status, "job $jobId complete" );
+    if ( $status ne "completed" ) {
+        assertOK( $::N->abortJob( $jobId, { force => 1 } ) );
+    }
+
+    # Check the outcome
+    my $outcome = $xpath->findvalue("//outcome");
+    assertEq( 'error', $outcome, "job $jobId outcome: $outcome" );
+
+    # Get the step log
+    $xpath = $::N->getJobDetails($jobId);
+    log_xml(__LINE__, $xpath, "getJobDetails");
+    assertOK( $xpath, "getJobDetails" );
+    #print "\n\n\n", $xpath->findnodes_as_string("/*"), "\n\n"; # Print the XML
+    my $ws = $xpath->findvalue("//workspace/winUNC");
+    if ( !isWindows() ) {
+        $ws = $xpath->findvalue("//workspace/unix");
+    }
+    my $agentLogFileName = $xpath->findvalue(
+        qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+        );
+    assertTrue( "$agentLogFileName", "Step-log name");
+    $ws .= "/$agentLogFileName";
+    my $data = readFile("$ws");
+
+    # Assertions
+    assertSubstring("Could not find configuration default", $data, "runMethod");
+};
+
+ntest "accu_tag_config_invalid", {haveScmAgent => 1, knownBug => "ECPSCM-47"}, sub {
+
+    my $procedureName = "accu tag - config - invalid";
+
+    my $serverName = "$::gTarget";
+    if ( "$::gTarget" eq "localhost" ) {
+        $serverName = hostname();
+    }
+
+    # Run the procedure
+    my $xpath = $::N->runProcedure(
+        "ECSCM Tests",
+        {
+            procedureName   => "$procedureName",
+            pollInterval    => '1',
+            timeout         => 600,
+            actualParameter => [
+                {
+                    actualParameterName => 'resource',
+                    value               => "$::gAgentResource"
+                },
+            ]
+        }
+    );
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # Make sure it finished
+    assertOK( $xpath, "runProcedure finished" );
+    my $jobId  = $xpath->findvalue("//jobId");
+    my $status = $xpath->findvalue("//status");
+    assertTrue($jobId && $jobId ne "",'valid job id');
+    assertEq( 'completed', $status, "job $jobId complete" );
+    if ( $status ne "completed" ) {
+        assertOK( $::N->abortJob( $jobId, { force => 1 } ) );
+    }
+
+    # Check the outcome
+    my $outcome = $xpath->findvalue("//outcome");
+    assertEq( 'error', $outcome, "job $jobId outcome: $outcome" );
+
+    # Get the step log
+    $xpath = $::N->getJobDetails($jobId);
+    log_xml(__LINE__, $xpath, "getJobDetails");
+    assertOK( $xpath, "getJobDetails" );
+    #print "\n\n\n", $xpath->findnodes_as_string("/*"), "\n\n"; # Print the XML
+    my $ws = $xpath->findvalue("//workspace/winUNC");
+    if ( !isWindows() ) {
+        $ws = $xpath->findvalue("//workspace/unix");
+    }
+    my $agentLogFileName = $xpath->findvalue(
+        qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+        );
+    assertTrue( "$agentLogFileName", "Step-log name");
+    $ws .= "/$agentLogFileName";
+    my $data = readFile("$ws");
+
+    # Assertions
+    assertSubstring("Could not find configuration bogus", $data, "runMethod");
+};
+
+
+ntest "accu_tag_dest_blank", {haveScmAgent => 1, knownBug => "ECPSCM-47"}, sub {
+
+    my $procedureName = "accu tag - dest - blank";
+
+    my $serverName = "$::gTarget";
+    if ( "$::gTarget" eq "localhost" ) {
+        $serverName = hostname();
+    }
+
+    # Run the procedure
+    my $xpath = $::N->runProcedure(
+        "ECSCM Tests",
+        {
+            procedureName   => "$procedureName",
+            pollInterval    => '1',
+            timeout         => 600,
+            actualParameter => [
+                {
+                    actualParameterName => 'resource',
+                    value               => "$::gAgentResource"
+                },
+            ]
+        }
+    );
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # Make sure it finished
+    assertOK( $xpath, "runProcedure finished" );
+    my $jobId  = $xpath->findvalue("//jobId");
+    my $status = $xpath->findvalue("//status");
+    assertTrue($jobId && $jobId ne "",'valid job id');
+    assertEq( 'completed', $status, "job $jobId complete" );
+    if ( $status ne "completed" ) {
+        assertOK( $::N->abortJob( $jobId, { force => 1 } ) );
+    }
+
+    # Check the outcome
+    my $outcome = $xpath->findvalue("//outcome");
+    assertEq( 'success', $outcome, "job $jobId outcome: $outcome" );
+
+    # Get the step log
+    $xpath = $::N->getJobDetails($jobId);
+    log_xml(__LINE__, $xpath, "getJobDetails");
+    assertOK( $xpath, "getJobDetails" );
+    #print "\n\n\n", $xpath->findnodes_as_string("/*"), "\n\n"; # Print the XML
+    my $ws = $xpath->findvalue("//workspace/winUNC");
+    if ( !isWindows() ) {
+        $ws = $xpath->findvalue("//workspace/unix");
+    }
+    my $agentLogFileName = $xpath->findvalue(
+        qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+        );
+    assertTrue( "$agentLogFileName", "Step-log name");
+    $ws .= "/$agentLogFileName";
+    my $data = readFile("$ws");
+
+    # Assertions
+    assertSubstring("promote", $data, "runMethod");
+    #    output contains a "promote" transaction
+};
+

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<editor>
+    <label>Continuous Integration - AccuRev</label>
+    <version>2.1.0</version>
+    <description>A schedule that is enabled for ElectricSentry continuous integration with AccuRev.</description>
+    <formElement>
+        <type>entry</type>
+        <label>Stream:</label>
+        <property>AccurevStream</property>
+        <required>1</required>
+        <documentation>The AccuRev stream to use.</documentation>
+    </formElement>
+    <formElement>
+        <type>entry</type>
+        <label>Quiet time minutes:</label>
+        <property>QuietTimeMinutes</property>
+        <documentation>The number of minutes of no check-in activity required before launching the procedure.</documentation>
+    </formElement>
+    <formElement>
+        <type>checkbox</type>
+        <label>Enabled for ElectricSentry:</label>
+        <property>TriggerFlag</property>
+        <checkedValue>2</checkedValue>
+        <uncheckedValue>0</uncheckedValue>
+        <initiallyChecked>1</initiallyChecked>
+        <documentation>Enable for continuous integration monitoring by ElectricSentry.</documentation>
+    </formElement>
+    <formElement>
+        <property>scheduleDisabled</property>
+        <value>1</value>
+    </formElement>
+</editor>

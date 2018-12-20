@@ -1,0 +1,32 @@
+<editor>
+    <help>/commander/pages/@PLUGIN_NAME@/@PLUGIN_KEY@_help?s=Administration&amp;ss=Plugins#CheckoutCode</help>
+    <formElement>
+        <type>entry</type>
+        <label>Configuration:</label>
+        <property>config</property>
+        <documentation>This parameter must have the name of the configuration created in the "Plugin Configuration Parameters" section for this plugin.</documentation>
+        <required>1</required>
+    </formElement>
+    <formElement>
+        <type>entry</type>
+        <label>Destination Directory:</label>
+        <property>dest</property>
+        <documentation>A path relative to the job's workspace, where the source tree will be created.</documentation>
+    </formElement>
+    <formElement>
+        <type>entry</type>
+        <label>Stream:</label>
+        <property>AccurevStreamBasis</property>
+        <required>0</required>
+        <documentation>The AccuRev stream to use.</documentation>
+    </formElement>
+    <formElement>
+        <type>checkbox</type>
+        <checkedValue>1</checkedValue>
+        <uncheckedValue>0</uncheckedValue>
+        <label>Set ACCUREV_USE_MOD_TIME enviroment var:</label>
+        <property>AccurevUseModTime</property>
+        <required>0</required>
+        <documentation>If you set this environment variable, files populated to your workspace will be populated with the mod time set to the original modification time instead of the current time. </documentation>
+    </formElement>	
+</editor>

@@ -1,0 +1,9 @@
+<editor>
+    <formElement>
+        <type>entry</type>
+        <label>Stream:</label>
+        <property>AccurevStream</property>
+        <required>1</required>
+        <documentation>The AccuRev stream to watch.</documentation>
+    </formElement>
+</editor>

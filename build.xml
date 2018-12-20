@@ -1,0 +1,22 @@
+<project name="ECSCM-Accurev" default="package" basedir=".">
+	<description>
+        Build the ECSCM-Accurev plugin
+    </description>
+
+    <property name="buildconfigdir" value="../build" />
+    
+	<!-- plugin specific properties -->
+	<property name="pluginKey" value="ECSCM-Accurev" />
+	<property name="pluginVersion" value="1.0" />
+	
+	<property name="gwtModules"
+            value="ecplugins.ECSCM.Reports"/>
+    <property name="package.export.src" value="ecscm.srcs"/>
+
+    <import file="${buildconfigdir}/buildTargets.xml"/>
+	
+	<!-- Package sources for exported utility classes. -->
+  <fileset id="ecscm.srcs" dir="${dir.src}/main/java">    <
+    <include name="**/Reportst.java"/>    
+  </fileset>
+</project>

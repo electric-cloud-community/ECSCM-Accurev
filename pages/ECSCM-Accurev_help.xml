@@ -1,0 +1,410 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta name="generator"
+          content="HTML Tidy for Windows (vers 14 February 2006), see www.w3.org" />
+    <meta content="text/html; charset=us-ascii"
+          http-equiv="content-type" />
+
+    <title>Electric Commander Plugin for AccuRev</title>
+    <link rel="stylesheet"
+          href="../../plugins/@PLUGIN_KEY@/pluginhelp.css"
+          type="text/css"
+          media="screen" />
+</head>
+
+<body>
+    <div class="help">
+        <h1>AccuRev</h1>
+
+        <p>Plugin Version @PLUGIN_VERSION@</p>
+        <hr style="margin-left: -10px; margin-top: 10px; height: 1px; width: 100%; color: #5981BD;"
+            noshade="noshade" />
+
+        <p>AccuRev is a centralized version control system which
+        uses a client/server model. Communication is performed via
+        TCP/IP using an XML based protocol for actions, and
+        streaming for file transfers.[3] Servers function as team
+        servers, continuous integration servers, or build servers.
+        AccuRev is built around a stream-based architecture in
+        which streams form a hierarchical structure of code changes
+        where parent streams pass on certain properties to child
+        streams.</p>
+
+        <h2>AccuRev Links</h2>
+
+        <p>More information can be found
+        at:</p><a href="http://www.accurev.com/accurev.html">AccuRev
+        site</a> 
+
+        <h2>Electric Commander Integration to AccuRev</h2>
+
+        <p>The ECSCM-Accurev plugin allows ElectricCommander to
+        communicate with your AccuRev source control server. This
+        plugin enables you to perform code checkout, preflight
+        actions, and continuous integration.</p>
+
+        <h2>Integrated Version</h2>
+
+        <p>This plugin was developed and tested against version
+        4.9.</p>
+
+        <h1>Plugin Procedures</h1>
+
+        <p>IMPORTANT: For all parameter descriptions below,
+        required parameters are shown in
+        <span class='required'>bold italics</span>.</p>
+
+        <div id="CreateConfiguration">
+            <a name='CreateConfiguration'
+                 id="CreateConfiguration"></a> 
+
+            <h3>Plugin Configuration</h3>
+
+            <p>Plugin configurations are sets of parameters that
+            apply across some or all of the plugin's procedures.
+            They are intended to reduce repetition of common
+            values, create predefined sets of parameters for end
+            users, and to securely store credentials where needed.
+            Each configuration is given a unique name that is
+            entered in designated parameters on procedures that use
+            them.<br />
+            <br />
+             Plugin configurations are created by going to the
+            Electric Commander "Administration" tab, then to the
+            "Defect Tracking" sub-tab.</p>
+
+            <table class="grid">
+                <thead>
+                    <tr>
+                        <th>Parameter</th>
+
+                        <th>Description</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    <tr>
+                        <td class='required'>SCM Type</td>
+
+                        <td>Select the SCM Type, in this case
+                        "AccuRev". (Required)</td>
+                    </tr>
+
+                    <tr>
+                        <td class='required'>Configuration
+                        Name</td>
+
+                        <td>Provide a unique name for the
+                        configuration, keeping in mind that you may
+                        need to create additional configurations
+                        over time. (Required)</td>
+                    </tr>
+
+                    <tr>
+                        <td>Description</td>
+
+                        <td>You can supply a text description only
+                        for your reference. Commander does not use
+                        this information.</td>
+                    </tr>
+
+                    <tr>
+                        <td>User Name</td>
+
+                        <td>Provide the user name Commander uses to
+                        communicate with the AccuRev server.</td>
+                    </tr>
+
+                    <tr>
+                        <td>Password and Retype Password</td>
+
+                        <td>Provide the password for the specified
+                        User Name.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="CheckoutCode">
+            <a name='CheckoutCode'
+                 id="CheckoutCode"></a> 
+
+            <h3>CheckoutCode</h3>
+
+            <p>Downloads a private copy of the last version of the
+            project. This will perform a AccuRev checkout command
+            in the desired destination.</p>
+
+            <table class="grid">
+                <thead>
+                    <tr>
+                        <th>Parameter</th>
+
+                        <th>Description</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    <tr>
+                        <td class='required'>Configuration</td>
+
+                        <td>This parameter must have the name of
+                        the configuration created in the "Plugin
+                        Configuration Parameters" section for this
+                        plugin. (Required)</td>
+                    </tr>
+
+                    <tr>
+                        <td>Destination Directory</td>
+
+                        <td>A path relative to the job's workspace,
+                        where the source tree will be created.</td>
+                    </tr>
+
+                    <tr>
+                        <td>Stream</td>
+
+                        <td>The AccuRev stream to use.</td>
+                    </tr>
+
+                    <tr>
+                        <td>Set ACCUREV_USE_MOD_TIME enviroment
+                        var</td>
+
+                        <td>If you set this environment variable,
+                        files populated to your workspace will be
+                        populated with the mod time set to the
+                        original modification time instead of the
+                        current time.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="Preflight (client side)">
+            <a name='Preflight (client side)'
+                 id="Preflight (client side)"></a> 
+
+            <h3>Preflight (client side)</h3>
+
+            <p>This will excecute the client part of the
+            preflight.</p>
+
+            <p>This parameters can be set in the .preflight file,
+            or passed directly to the ecclientpreflight tool.</p>
+
+            <h3>Preflight parameters</h3>
+
+            <table class="grid">
+                <thead>
+                    <tr>
+                        <th>Parameter</th>
+
+                        <th>Description</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    <tr>
+                        <td class='required'>Configuration</td>
+
+                        <td>This parameter must have the name of
+                        the configuration created in the "Plugin
+                        Configuration Parameters" section for this
+                        plugin. (Required)</td>
+                    </tr>
+
+                    <tr>
+                        <td>Destination Directory</td>
+
+                        <td>A path relative to the job's workspace,
+                        where the source tree will be created.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="Preflight (agent side)">
+            <a name='Preflight (agent side)'
+                 id="Preflight (agent side)"></a> 
+
+            <h3>Preflight (agent side)</h3>
+
+            <p>This will excecute the agent side part of the
+            preflight.</p>
+
+            <table class="grid">
+                <thead>
+                    <tr>
+                        <th>Parameter</th>
+
+                        <th>Description</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    <tr>
+                        <td>accurevuser</td>
+
+                        <td>The value of ACCUREVUSER. May also be
+                        set in the environment. Defaults to the
+                        Commander user if not specified.</td>
+                    </tr>
+
+                    <tr>
+                        <td>accurevpasswd</td>
+
+                        <td>The value of ACCUREVPASSWD. May also be
+                        set in the environment.</td>
+                    </tr>
+
+                    <tr>
+                        <td>accurevpath</td>
+
+                        <td>The value of ACCUREVPATH. May also be
+                        set in the environment. This is a required
+                        value.</td>
+                    </tr>
+
+                    <tr>
+                        <td>accurevpending</td>
+
+                        <td>Use this option to have the client
+                        workspace scanned for all pending elements
+                        using the \"stat -fn -p\" command. By
+                        default, the workspace is scanned for all
+                        kept elements using the \"stat -fn -k\"
+                        command.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="getSCMTag">
+            <a name='getSCMTag'
+                 id="getSCMTag"></a> 
+
+            <h3>getSCMTag</h3>
+
+            <p>This procedure is used for Continuous Integration.
+            This will monitor the repository to discover whether
+            something changed, and trigger a preconfugured
+            procedure.</p>
+
+            <table class="grid">
+                <thead>
+                    <tr>
+                        <th>Parameter</th>
+
+                        <th>Description</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    <tr>
+                        <td class='required'>Stream</td>
+
+                        <td>The AccuRev stream to use.
+                        (Required)</td>
+                    </tr>
+
+                    <tr>
+                        <td>Quiet time minutes</td>
+
+                        <td>The number of minutes of no check-in
+                        activity required before launching the
+                        procedure.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h1>Examples and Use Cases</h1>
+
+        <h2>Configure a Checkout</h2>
+
+        <p>Fill the form, in this example we are using a
+        configuration called "AccuRev" and we are going to checkout
+        a repository from a AccuRev server machine.</p>
+
+        <h2>Preflight</h2>
+
+        <h3>Configuring the preflight</h3>
+
+        <p>Select a Step name, in this example we used
+        "PreflightStep", from the select list, pick the AccuRev
+        configuration that you want to use, we chose AccuRev and
+        provide a destination directory.</p>
+
+        <h3>Running the preflight</h3>
+
+        <p>Once we have the preflight file ready we just need to
+        call the "ecclientpreflight" tool from a console.<br />
+         You will see how it copies all the changed files to the
+        server, and lauches the preflight procedure that we created
+        earlier.</p>
+
+        <p>If you go to the commander jobs tab, you will see our
+        recently launched job.</p>
+
+        <p>You can see the log file by clicking on the log
+        link.</p>
+
+        <h2>Configuring a sentry schedule Form</h2>
+
+        <p>In the project, select the "schedules" tab, then in the
+        pop-up select the "SCM" type.</p>
+
+        <p>Select an step name, in this case we used "my sentry",
+        also select a AccuRev configuration. Then you should select
+        the procedure that will be run when the sentry is
+        triggered. In this case we chose the project "AccuRev" and
+        the procedure name inside the project called
+        "runWithSentry", this procedure just echoes a simple "hello
+        world" message</p>
+
+        <p>After that, a new form will be shown where you should
+        type our AccuRev repository.</p>
+
+        <p>The sentry will detect new changes and execute the
+        runWithSentry procedure, in our case it just prints a
+        "Hello work message".</p>
+
+        <p>The runWithSentry job, should be visible now from the
+        jobs tab.</p>
+
+        <h1>Release Notes</h1>
+
+        <h2>@PLUGIN_KEY@ 2.0.1</h2>
+
+        <ul>
+            <li>Step chooser name cleanup</li>
+        </ul>
+
+        <h2>@PLUGIN_KEY@ 2.0.0</h2>
+
+        <ul>
+            <li>Help page update</li>
+        </ul>
+
+        <h2>@PLUGIN_KEY@ 1.1.3</h2>
+
+        <ul>
+            <li>Fixed local resource issue</li>
+        </ul>
+
+        <h2>@PLUGIN_KEY@ 1.1.2</h2>
+
+        <ul>
+            <li>SCM features - Sentry</li>
+
+            <li>SCM features - Checkout</li>
+
+            <li>SCM features - Preflight</li>
+        </ul>
+    </div>
+</body>
+</html>
