@@ -19,7 +19,7 @@ buildscript {
 
 group = 'com.electriccloud'
 description = 'Plugins : ECSCM-Accurev'
-version = '2.0.2'
+version = '2.0.3'
 
 apply plugin: 'flow-gradle-plugin'
 apply plugin: 'license'

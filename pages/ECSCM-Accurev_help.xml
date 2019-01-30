@@ -377,7 +377,10 @@
         jobs tab.</p>
 
         <h1>Release Notes</h1>
-
+        <h2>@PLUGIN_KEY@ 2.0.3</h2>
+        <ul>
+            <li>Added metadata that is required for 9.0 release.</li>
+        </ul>
         <h2>@PLUGIN_KEY@ 2.0.1</h2>
 
         <ul>
